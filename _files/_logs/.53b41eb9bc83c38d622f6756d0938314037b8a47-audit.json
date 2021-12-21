@@ -1,0 +1,14 @@
+{
+    "keep": {
+        "days": false,
+        "amount": 50
+    },
+    "auditLog": "/Users/seojiyeong/ezen/Study_Node/_files/_logs/.53b41eb9bc83c38d622f6756d0938314037b8a47-audit.json",
+    "files": [
+        {
+            "date": 1639982323026,
+            "name": "/Users/seojiyeong/ezen/Study_Node/_files/_logs/log_$DATE$.log.211220",
+            "hash": "c70e7789144439353f2f88967b21bcb3"
+        }
+    ]
+}

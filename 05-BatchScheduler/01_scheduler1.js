@@ -5,7 +5,7 @@
  * $ npm install --save node-schedule
  */
 
-/** (1) 필요한 패키지 참조하기 */
+/** ..(1) 필요한 패키지 참조하기 */
 const logger = require("../helper/LogHelper");
 const dayjs = require("dayjs");
 const schedule = require("node-schedule");

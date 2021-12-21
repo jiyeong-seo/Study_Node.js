@@ -46,7 +46,6 @@ module.exports.mkdirs = (target, permissions = 0755) => {
       return;
     }
 
-    console.debug(dir);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir);
       fs.chmodSync(dir, permissions);
