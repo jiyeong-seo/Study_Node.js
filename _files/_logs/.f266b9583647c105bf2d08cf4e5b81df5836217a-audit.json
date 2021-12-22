@@ -9,6 +9,16 @@
             "date": 1639982323029,
             "name": "/Users/seojiyeong/ezen/Study_Node/_files/_logs/log_$DATE$.log.211220",
             "hash": "819fce91b37774e942182c820dfe1341"
+        },
+        {
+            "date": 1640054102868,
+            "name": "/Users/seojiyeong/ezen/Study_Node/_files/_logs/log_$DATE$.log.211221",
+            "hash": "8fb8f35670ce53cf4348b0f60e8b42e2"
+        },
+        {
+            "date": 1640138593010,
+            "name": "/Users/seojiyeong/ezen/Study_Node/_files/_logs/log_$DATE$.log.211222",
+            "hash": "5a874cf67a770e29956c497d22f962c0"
         }
     ]
 }
