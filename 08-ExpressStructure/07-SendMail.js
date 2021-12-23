@@ -4,6 +4,7 @@
 // 직접 구현한 모듈
 const logger = require("../helper/LogHelper");
 const util = require("../helper/UtilHelper");
+const fileHelper = require("../helper/FileHelper");
 // 내장 모듈
 const url = require("url");
 const path = require("path");
@@ -16,6 +17,8 @@ const bodyParser = require("body-parser"); // POST 파라미터 처리
 const methodOverride = require("method-override"); // PUT 파라미터 처리
 const cookieParser = require("cookie-parser"); // Cookie 처리
 const expressSession = require("express-session"); // Session 처리
+const multer = require("multer"); // 업로드 모듈
+const nodemailer = require("nodemailer"); // 메일 발송 -> app.use()로 추가 설정 필요 없음.
 /*----------------------------------------------------------
  | 2) Express 객체 생성
  -----------------------------------------------------------*/
@@ -130,7 +133,10 @@ app.use(
 // 'http://아이피:포트번호' 이후의 경로가 router에 등록되지 않은 경로라면
 // static 모듈에 연결된 폴더 안에서 해당 경로를 탐색한다.
 const public_path = path.join(__dirname, "../public");
+const upload_path = path.join(__dirname, "../_files/upload");
 app.use("/", static(public_path));
+// -> upload 폴더의 웹 상의 위치 : http://아이피:포트번호/upload
+app.use("/upload/", static(upload_path));
 
 /** favicon 설정 */
 app.use(favicon(public_path + "/favicon.png"));
@@ -139,6 +145,65 @@ app.use(favicon(public_path + "/favicon.png"));
 const router = express.Router();
 // 라우터를 express에 등록
 app.use("/", router);
+
+/** multer 객체 생성 -> 파일 제한 : 5개, 20M */
+const multipart = multer({
+  storage: multer.diskStorage({
+    /** 업로드 된 파일이 저장될 디렉토리 설정 */
+    // req는 요청 정보, file은 최종적으로 업로드 된 결과 데이터가 저장되어 있을 객체
+    destination: (req, file, callback) => {
+      // 폴더 생성
+      fileHelper.mkdirs(upload_path);
+      console.debug(file);
+
+      // 업로드 정보에 백엔드의 업로드 파일 저장 폴더 위치를 추가한다
+      file.dir = upload_path.replace(/\\/gi, "/");
+
+      // multer 객체에게 업로드 경로를 전달
+      callback(null, upload_path);
+    },
+    /** 업로드 된 파일이 저장될 파일명 설정 */
+    // file.originalname 변수에 파일 이름이 저장되어 있다. -> ex) helloworld.png
+    filename: (req, file, callback) => {
+      // 파일의 확장자만 추출 -> .png
+      const extName = path.extname(file.originalname);
+      // 파일이 저장될 이름 (현재 시각)
+      const saveName = new Date().getTime().toString() + extName.toLowerCase();
+      // 업로드 정보에 백엔드의 업로드 파일 이름을 추가한다.
+      file.saveName = saveName;
+      // 업로드 정보에 파일에 접근할 수 있는 URL값 추가
+      file.url = path.join("/upload", saveName).replace(/\//gi, "/");
+      // 구성된 정보를 req 객체에게 추가
+      if (req.file instanceof Array) {
+        req.file.push(file);
+      } else {
+        req.file = file;
+      }
+
+      callback(null, saveName);
+    },
+  }),
+  /** 요량, 최대 업로드 파일 수 제한 설정 */
+  limits: {
+    files: 5,
+    fileSize: 1024 * 1024 * 20,
+  },
+  /** 업로드 될 파일의 확장자 제한 */
+  fileFilter: (req, file, callback) => {
+    // 파일의 종류 얻기
+    var mimetype = file.mimetype;
+
+    // 파일의 종류 문자열에 'image/'가 포함되어 있지 않은 경우
+    if (mimetype.indexOf("image/") == -1) {
+      const error = new Error();
+      error.result_code = 500;
+      error.result_msg = "이미지 파일만 업로드 가능합니다.";
+      return callback(error);
+    }
+
+    callback(null, true);
+  },
+});
 
 /*----------------------------------------------------------
  | 5) 각 URL별 백엔드 기능 정의
@@ -475,6 +540,136 @@ router
     const json = { rt: result_msg };
     res.status(result_code).send(json);
   });
+
+/** 06 - FileUpload.js */
+router.route("/upload/simple").post((req, res, next) => {
+  // name속성값이 myphoto인 경우, 업로드를 수행.
+  const upload = multipart.single("myphoto");
+
+  upload(req, res, (err) => {
+    let result_code = 200;
+    let result_msg = "ok";
+
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        switch (err.code) {
+          case "LIMIT_FIELD_COUNT":
+            err.result_code = 500;
+            err.result_msg = "업로드 가능한 파일 수를 초과했습니다.";
+            break;
+          case "LIMIT_FILE_SIZE":
+            err.result_code = 500;
+            err.result_msg = "업로드 가능한 파일 용량을 초과했습니다.";
+            break;
+          default:
+            err.result_code = 500;
+            err.result_msg = "알 수 없는 에러가 발생했습니다.";
+            break;
+        }
+      }
+      logger.error(err);
+      result_code = err.result_code;
+      result_msg = err.result_msg;
+    }
+
+    const fileInfo = req.file;
+    fileInfo.msg = result_msg;
+
+    res.status(result_code).send(fileInfo);
+  });
+});
+
+router.route("/upload/multiple").post((req, res, next) => {
+  // 요청 정보 안에 업로드된 파일의 정보를 저장할 빈 배열을 준비
+  req.file = [];
+
+  // name속성이 myphoto이고 multiple 속성이 부여된 다중 업로드를 처리하는 함수 upload
+  const upload = multipart.array("myphoto");
+
+  upload(req, res, (err) => {
+    let result_code = 200;
+    let result_msg = "ok";
+
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        switch (err.code) {
+          case "LIMIT_FIELD_COUNT":
+            err.result_code = 500;
+            err.result_msg = "업로드 가능한 파일 수를 초과했습니다.";
+            break;
+          case "LIMIT_FILE_SIZE":
+            err.result_code = 500;
+            err.result_msg = "업로드 가능한 파일 용량을 초과했습니다.";
+            break;
+          default:
+            err.result_code = 500;
+            err.result_msg = "알 수 없는 에러가 발생했습니다.";
+            break;
+        }
+      }
+      logger.error(err);
+      result_code = err.result_code;
+      result_msg = err.result_msg;
+    }
+
+    const result = {
+      rt: result_code,
+      rtmsg: result_msg,
+      item: req.file,
+    };
+
+    res.status(result_code).send(result);
+  });
+});
+
+/** 07-SendMail.js */
+router.route("/send_mail").post(async (req, res, next) => {
+  /** 1) 프론트엔드에서 전달한 사용자 입력값 */
+  const writer_name = req.body.writer_name;
+  let writer_email = req.body.writer_email;
+  const receiver_name = req.body.receiver_name;
+  let receiver_email = req.body.receiver_email;
+  const subject = req.body.subject;
+  const content = req.body.content;
+
+  /** 2) 보내는 사람, 받는 사람의 메일 주소와 이름 */
+  // 보내는 사람의 이름과 주소
+  if (writer_name) {
+    // ex) 서지영 <jen.jyseo@gmail.com>
+    writer_email = writer_name + "<" + writer_email + ">";
+  }
+
+  // 받는 사람의 이름과 주소
+  if (receiver_name) {
+    receiver_email = receiver_name + "<" + receiver_email + ">";
+  }
+
+  /** 3) 메일 발송정보 구성 */
+  const send_info = {
+    from: writer_email,
+    to: receiver_email,
+    subject: subject,
+    html: content,
+  };
+  logger.debug(JSON.stringify(send_info));
+
+  const smtp = nodemailer.createTransport({
+    host: "smtp.gmail.com", // SMTP 서버명 : smtp.gmail.com
+    port: 465, // SMTP 포트 : 587
+    secure: true, // 보안연결(SSL) 필요
+    auth: { user: "jen.jyseo@gmail.com", pass: "zrkxmkmyaliqpnwy" },
+  });
+
+  /** 4) 메일발송 요청 */
+  try {
+    await smtp.sendMail(send_info);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).send("error");
+  }
+
+  res.status(200).send("ok");
+});
 
 /*----------------------------------------------------------
  | 6) 설정한 내용을 기반으로 서버 구동 시작
