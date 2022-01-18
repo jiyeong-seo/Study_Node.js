@@ -149,12 +149,13 @@ app.use("/", router);
 /*----------------------------------------------------------
  | 5) 각 URL별 백엔드 기능 정의
  -----------------------------------------------------------*/
-app.use(require("./route/Setup")(app));
-app.use(require("./route/Params")(app));
-app.use(require("./route/Cookie")(app));
-app.use(require("./route/Session")(app));
-app.use(require("./route/FileUpload")(app));
-app.use(require("./route/SendMail")(app));
+  app.use(require("../12.RestfulAPI/controllers/Department")(app));
+// app.use(require("./route/Setup")(app));
+// app.use(require("./route/Params")(app));
+// app.use(require("./route/Cookie")(app));
+// app.use(require("./route/Session")(app));
+// app.use(require("./route/FileUpload")(app));
+// app.use(require("./route/SendMail")(app));
 /*----------------------------------------------------------
  | 6) 설정한 내용을 기반으로 서버 구동 시작
  -----------------------------------------------------------*/

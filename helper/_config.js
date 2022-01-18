@@ -60,4 +60,13 @@ module.exports = {
     sizes: [480, 750, 1020],
     dir: path.join(__dirname, "../files/thumb"),
   },
+
+  /** 데이터베이스 연동 정보 */
+  databases: {
+    host: "localhost", // MySQL server 주소 (다른 pc인 경우 ip주소)
+    port: 3306, // MySQL 설치시 기본값 3306
+    user: "root", // 접근 권한 아이디 (root=관리자)
+    // password: '' // 설치시 입력한 비밀번호
+    database: "myschool", // 사용할 데이터베이스 이름
+  },
 };
