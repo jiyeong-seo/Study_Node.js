@@ -6,6 +6,8 @@ const config = require("../helper/_config");
 const logger = require("../helper/LogHelper");
 const util = require("../helper/UtilHelper");
 const fileHelper = require("../helper/FileHelper");
+const webHelper = require("../helper/WebHelper");
+
 // 내장 모듈
 const url = require("url");
 const path = require("path");
@@ -149,12 +151,35 @@ app.use("/", router);
 /*----------------------------------------------------------
  | 5) 각 URL별 백엔드 기능 정의
  -----------------------------------------------------------*/
-// app.use(require("./route/Setup")(app));
-// app.use(require("./route/Params")(app));
-// app.use(require("./route/Cookie")(app));
-// app.use(require("./route/Session")(app));
-// app.use(require("./route/FileUpload")(app));
-// app.use(require("./route/SendMail")(app));
+app.use(require("./Department")(app));
+
+// 런타임 에러가 발생한 경우에 대한 일괄 처리
+app.use((error, req, res, next) => {
+  logger.error(error);
+
+  let status = 500;
+  let msg = null;
+
+  if (!isNaN(error.message)) {
+    status = parseInt(error.message);
+  }
+
+  switch (status) {
+    case 400:
+      res.sendBadRequest();
+      break;
+    default:
+      res.sendRuntimeError();
+      break;
+  }
+
+});
+
+// 앞에서 정의하지 않은 그 밖의 URL에 대한 일괄 처리
+app.use("*", (req, res, next) => {
+  res.sendNotFound();
+});
+
 /*----------------------------------------------------------
  | 6) 설정한 내용을 기반으로 서버 구동 시작
  -----------------------------------------------------------*/
